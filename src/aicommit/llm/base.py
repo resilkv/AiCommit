@@ -6,4 +6,5 @@ class LLMError(Exception):
 
 
 class LLMClient(Protocol):
+    "Added the description to this part"
     def generate(self, system: str, user: str) -> str: ...
