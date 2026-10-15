@@ -6,11 +6,9 @@ from typing import Optional
 import typer
 from dotenv import load_dotenv
 
-from config import Config, load_config
-
-
+from .config import Config, load_config
 from .git import run_git, staged_diff
-from aicommit.pipeline import generate_message
+from .pipeline import generate_message
 
 app = typer.Typer(add_completion=False, help="AI-written commit messages.")
 MARKER = "# aicommit-hook"
