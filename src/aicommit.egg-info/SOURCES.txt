@@ -1,0 +1,10 @@
+pyproject.toml
+src/aicommit/__init__.py
+src/aicommit/git.py
+src/aicommit/test_git.py
+src/aicommit.egg-info/PKG-INFO
+src/aicommit.egg-info/SOURCES.txt
+src/aicommit.egg-info/dependency_links.txt
+src/aicommit.egg-info/entry_points.txt
+src/aicommit.egg-info/requires.txt
+src/aicommit.egg-info/top_level.txt
