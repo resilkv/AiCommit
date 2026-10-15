@@ -19,9 +19,7 @@ def _warn(msg: str) -> None:
 
 
 def _make_client(cfg: Config):
-    if os.environ.get("AICOMMIT_PROVIDER") == "fake":
-        from .llm.fake import FakeLLM
-        return FakeLLM()
+   
     from .llm.bedrock import BedrockClient
     return BedrockClient(cfg.model_id, cfg.region, cfg.max_tokens)
 
