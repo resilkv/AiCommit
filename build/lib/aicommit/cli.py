@@ -23,7 +23,7 @@ def _make_client(cfg: Config):
         from .llm.fake import FakeLLM
         return FakeLLM()
     from .llm.bedrock import BedrockClient
-    return BedrockClient(cfg.model_id, cfg.region)
+    return BedrockClient(cfg.model_id, cfg.region, cfg.max_tokens)
 
 
 @app.command()

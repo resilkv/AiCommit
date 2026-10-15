@@ -5,8 +5,9 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    model_id: str = "amazon.nova-lite-v1:0"
+    model_id: str = "amazon.nova-pro-v1:0"
     region: str = "ap-southeast-2"
+    max_tokens: int = 2500
     max_diff_chars: int = 12000
     ignore: list[str] | None = None   # None = use DEFAULT_IGNORE
 

@@ -10,7 +10,7 @@ from .base import LLMError
 class BedrockClient:
     """Amazon Nova via InvokeModel. The only file that knows Nova's request/response format."""
 
-    def __init__(self, model_id: str, region: str, max_tokens: int = 300):
+    def __init__(self, model_id: str, region: str, max_tokens: int = 2500):
         self.model_id = model_id
         self.max_tokens = max_tokens
         self._client = boto3.client(
@@ -20,19 +20,14 @@ class BedrockClient:
         )
 
     def generate(self, system: str, user: str) -> str:
-        body = {
-            "system": [{"text": system}],
-            "messages": [{"role": "user", "content": [{"text": user}]}],
-            "inferenceConfig": {"maxTokens": self.max_tokens, "temperature": 0.2},
-        }
         try:
-            resp = self._client.invoke_model(
+            resp = self._client.converse(
                 modelId=self.model_id,
-                body=json.dumps(body),
-                contentType="application/json",
-                accept="application/json",
+                system=[{"text": system}],
+                messages=[{"role": "user", "content": [{"text": user}]}],
+                inferenceConfig={"maxTokens": self.max_tokens, "temperature": 0.2},
             )
-            data = json.loads(resp["body"].read())
-            return data["output"]["message"]["content"][0]["text"]
-        except (BotoCoreError, ClientError, KeyError, IndexError, json.JSONDecodeError) as e:
+            blocks = resp["output"]["message"]["content"]
+            return next(b["text"] for b in blocks if "text" in b)
+        except (BotoCoreError, ClientError, KeyError, IndexError, StopIteration) as e:
             raise LLMError(f"{type(e).__name__}: {e}") from e
