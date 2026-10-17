@@ -29,3 +29,26 @@ def test_truncates_large_diff(tmp_path):
     _stage_all(tmp_path)
     diff = staged_diff(max_chars=500, cwd=tmp_path)
     assert diff.endswith("[diff truncated]\n")
+
+
+def test_ignored_quoted_secret_path_removed(tmp_path):
+    _init_repo(tmp_path)
+    secret = tmp_path / 'secret "credentials".env'
+    secret.write_text("AWS_SECRET_ACCESS_KEY=do-not-send\n")
+    (tmp_path / "safe.py").write_text("print('safe')\n")
+    _stage_all(tmp_path)
+
+    diff = staged_diff(cwd=tmp_path)
+
+    assert "safe.py" in diff
+    assert "do-not-send" not in diff
+
+
+def test_ignored_env_directory_file_removed(tmp_path):
+    _init_repo(tmp_path)
+    env_dir = tmp_path / "config"
+    env_dir.mkdir()
+    (env_dir / ".env.production").write_text("TOKEN=do-not-send\n")
+    _stage_all(tmp_path)
+
+    assert "do-not-send" not in staged_diff(cwd=tmp_path)

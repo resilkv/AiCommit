@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -12,6 +11,7 @@ from .pipeline import generate_message
 
 app = typer.Typer(add_completion=False, help="AI-written commit messages.")
 MARKER = "# aicommit-hook"
+ORIGINAL_MARKER = "# aicommit-original-hook"
 
 
 def _warn(msg: str) -> None:
@@ -53,10 +53,29 @@ def install(force: bool = typer.Option(False, "--force")) -> None:
     hooks_dir = Path(run_git("rev-parse", "--git-path", "hooks").strip())
     hooks_dir.mkdir(parents=True, exist_ok=True)
     hook = hooks_dir / "prepare-commit-msg"
-    if hook.exists() and MARKER not in hook.read_text() and not force:
-        typer.echo("A different prepare-commit-msg hook exists. Use --force to overwrite.")
+    current = hook.read_text() if hook.exists() else ""
+    if MARKER in current:
+        typer.echo("aicommit hook is already installed.")
+        return
+    if current and not force:
+        typer.echo("A different prepare-commit-msg hook exists. Use --force to chain it.")
         raise typer.Exit(1)
-    hook.write_text(f'#!/bin/sh\n{MARKER}\n"{sys.executable}" -m aicommit.cli run "$@" || exit 0\n')
+    original = hooks_dir / "prepare-commit-msg.aicommit-original"
+    if current:
+        if original.exists():
+            typer.echo(f"Saved hook already exists: {original}")
+            raise typer.Exit(1)
+        original.write_text(current)
+        original.chmod(hook.stat().st_mode & 0o777)
+    # `-I` ignores the repository and user site-packages on Python startup,
+    # preventing a repo-local module from shadowing the installed package.
+    hook.write_text(
+        f'#!/bin/sh\n{MARKER}\n'
+        f'"{sys.executable}" -I -m aicommit.cli run "$@" || :\n'
+        f'if [ -x "$(dirname "$0")/prepare-commit-msg.aicommit-original" ]; then\n'
+        f'  "$(dirname "$0")/prepare-commit-msg.aicommit-original" "$@"\n'
+        f'fi\n'
+    )
     hook.chmod(0o755)
     typer.echo(f"Installed {hook}")
 
@@ -67,7 +86,12 @@ def uninstall() -> None:
     hooks_dir = Path(run_git("rev-parse", "--git-path", "hooks").strip())
     hook = hooks_dir / "prepare-commit-msg"
     if hook.exists() and MARKER in hook.read_text():
-        hook.unlink()
+        original = hooks_dir / "prepare-commit-msg.aicommit-original"
+        if original.exists():
+            hook.unlink()
+            original.replace(hook)
+        else:
+            hook.unlink()
         typer.echo("Removed hook.")
     else:
         typer.echo("No aicommit hook found.")

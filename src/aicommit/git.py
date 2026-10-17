@@ -1,4 +1,3 @@
-import re
 import subprocess
 from fnmatch import fnmatch
 
@@ -16,11 +15,6 @@ def run_git(*args: str, cwd=None) -> str:
     return result.stdout
 
 
-def _path_from_chunk(chunk: str) -> str:
-    first_line = chunk.split("\n", 1)[0]         
-    return first_line.rsplit(" b/", 1)[-1]
-
-
 def _is_ignored(path: str, patterns: list[str]) -> bool:
     name = path.rsplit("/", 1)[-1]
     return any(fnmatch(path, p) or fnmatch(name, p) for p in patterns)
@@ -29,10 +23,21 @@ def _is_ignored(path: str, patterns: list[str]) -> bool:
 def staged_diff(ignore: list[str] | None = None, max_chars: int = 12000, cwd=None) -> str:
     """Return the staged diff with ignored files removed and size capped."""
     patterns = ignore if ignore is not None else DEFAULT_IGNORE
-    raw = run_git("diff", "--cached", "--no-color", "--unified=3", cwd=cwd)
-    chunks = re.split(r"(?m)^(?=diff --git )", raw)
-    kept = [c for c in chunks if c.strip() and not _is_ignored(_path_from_chunk(c), patterns)]
-    diff = "".join(kept)
+    # Use Git's path filtering, which handles quoted filenames itself. Apply
+    # patterns against both paths so renames cannot leak an ignored old path.
+    paths = run_git("diff", "--cached", "--name-only", "-z", cwd=cwd).split("\0")
+    paths = [path for path in paths if path]
+    kept = [path for path in paths if not _is_ignored(path, patterns)]
+    if not kept:
+        return ""
+    raw = subprocess.run(
+        ["git", "diff", "--cached", "--no-color", "--unified=3", "--", *kept],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=cwd,
+    ).stdout
+    diff = raw
     if len(diff) > max_chars:
         diff = diff[:max_chars] + "\n[diff truncated]\n"
     return diff
